@@ -82,6 +82,7 @@ class DashboardSnapshot(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     department = Column(String(100), nullable=False, index=True)
     content = Column(Text, nullable=False)  # Markdown content
+    charts_json = Column(Text, nullable=False, default="[]")  # JSON array of chart data
     generated_date = Column(Date, nullable=False, default=date.today)
     generated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
@@ -89,6 +90,7 @@ class DashboardSnapshot(Base):
         return {
             "department": self.department,
             "content": self.content,
+            "charts_json": self.charts_json,
             "generated_date": self.generated_date.isoformat(),
             "generated_at": self.generated_at.isoformat(),
         }
