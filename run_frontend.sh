@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# Start the Streamlit frontend on port 8501
+# Start the Lovable React frontend on port 5173
 set -e
 cd "$(dirname "$0")"
-streamlit run frontend/app.py --server.port 8501
+FRONTEND_DIR="lovable-frontend"
+cd "$FRONTEND_DIR"
+
+if [ ! -d "node_modules" ]; then
+  npm install
+fi
+
+npm run dev -- --host 0.0.0.0 --port 5173
