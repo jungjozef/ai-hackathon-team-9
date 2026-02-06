@@ -182,18 +182,49 @@ with st.sidebar:
                     st.cache_data.clear()
                     st.rerun()
 
-# ---- Initialize chat history per department ----
+# ---- Load chat history from backend per department ----
 if "histories" not in st.session_state:
     st.session_state.histories = {}
 
 if selected_dept not in st.session_state.histories:
-    st.session_state.histories[selected_dept] = []
+    # Fetch persisted history from the API on first select
+    try:
+        hist_resp = requests.get(
+            f"{API_URL}/chat/history",
+            params={"department": selected_dept},
+            headers=get_auth_headers(),
+            timeout=5,
+        )
+        if hist_resp.status_code == 401:
+            logout()
+            st.rerun()
+        hist_resp.raise_for_status()
+        st.session_state.histories[selected_dept] = hist_resp.json()
+    except Exception:
+        st.session_state.histories[selected_dept] = []
 
 history = st.session_state.histories[selected_dept]
 
 # ---- Display chat history ----
 dept_info = next((d for d in departments if d["name"] == selected_dept), None)
-st.subheader(f"{dept_info['icon']} {selected_dept} Representative" if dept_info else selected_dept)
+
+header_col, clear_col = st.columns([6, 1])
+with header_col:
+    st.subheader(f"{dept_info['icon']} {selected_dept} Representative" if dept_info else selected_dept)
+with clear_col:
+    if history and st.button("Clear", help="Clear conversation history"):
+        try:
+            requests.delete(
+                f"{API_URL}/chat/history",
+                params={"department": selected_dept},
+                headers=get_auth_headers(),
+                timeout=5,
+            )
+        except Exception:
+            pass
+        st.session_state.histories[selected_dept] = []
+        st.rerun()
+
 st.caption(dept_info["description"] if dept_info else "")
 
 for msg in history:

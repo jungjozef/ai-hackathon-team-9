@@ -18,7 +18,7 @@ from backend.auth import (
 from backend.database import get_db, init_db
 from backend.document_processor import extract_text, store_document
 from backend.llm import chat as llm_chat
-from shared.models import Document, User
+from shared.models import ConversationMessage, Document, User
 from shared.personas import list_departments
 
 logging.basicConfig(level=logging.INFO)
@@ -178,6 +178,46 @@ def chat_endpoint(
     """Query a department representative with a message."""
     try:
         reply = llm_chat(req.department, req.message, db, history=req.history)
-        return {"department": req.department, "reply": reply}
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+    # Persist both the user message and the assistant reply
+    db.add(ConversationMessage(user_id=current_user.id, department=req.department, role="user", content=req.message))
+    db.add(ConversationMessage(user_id=current_user.id, department=req.department, role="assistant", content=reply))
+    db.commit()
+
+    return {"department": req.department, "reply": reply}
+
+
+@app.get("/chat/history")
+def get_chat_history(
+    department: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the conversation history for the current user and department."""
+    messages = (
+        db.query(ConversationMessage)
+        .filter(
+            ConversationMessage.user_id == current_user.id,
+            ConversationMessage.department == department,
+        )
+        .order_by(ConversationMessage.created_at.asc())
+        .all()
+    )
+    return [m.to_dict() for m in messages]
+
+
+@app.delete("/chat/history")
+def delete_chat_history(
+    department: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Clear the conversation history for the current user and department."""
+    db.query(ConversationMessage).filter(
+        ConversationMessage.user_id == current_user.id,
+        ConversationMessage.department == department,
+    ).delete()
+    db.commit()
+    return {"detail": f"History cleared for {department}"}
