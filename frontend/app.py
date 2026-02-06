@@ -7,6 +7,84 @@ API_URL = "http://localhost:8000"
 
 # ---- Page config ----
 st.set_page_config(page_title="Virtual Representatives", page_icon="🏢", layout="wide")
+
+
+# ---- Auth helpers ----
+
+def handle_oauth_redirect():
+    """Read ?token= from the URL after Google OAuth redirect and store it in session."""
+    params = st.query_params
+    if "token" in params:
+        st.session_state["jwt_token"] = params["token"]
+        st.query_params.clear()
+
+
+def get_auth_headers() -> dict:
+    """Return Authorization header dict for authenticated API calls."""
+    token = st.session_state.get("jwt_token")
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
+
+
+def check_login_status() -> dict | None:
+    """Validate the stored JWT by calling /auth/me. Returns user dict or None."""
+    token = st.session_state.get("jwt_token")
+    if not token:
+        return None
+    try:
+        resp = requests.get(f"{API_URL}/auth/me", headers=get_auth_headers(), timeout=5)
+        if resp.status_code == 401:
+            st.session_state.pop("jwt_token", None)
+            return None
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return None
+
+
+def logout():
+    """Clear the JWT from session state."""
+    st.session_state.pop("jwt_token", None)
+    st.session_state.pop("user_info", None)
+
+
+# ---- Handle OAuth redirect (runs on every page load) ----
+handle_oauth_redirect()
+
+# ---- Check authentication ----
+user_info = check_login_status()
+
+if user_info is None:
+    # ---- Login screen ----
+    st.title("🏢 Virtual Department Representatives")
+    st.markdown("---")
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown(
+            "<h3 style='text-align: center;'>Welcome! Please sign in to continue.</h3>",
+            unsafe_allow_html=True,
+        )
+        st.write("")
+
+        # Fetch the Google OAuth URL from the backend
+        if st.button("🔐 Sign in with Google", use_container_width=True, type="primary"):
+            try:
+                resp = requests.get(f"{API_URL}/auth/google/login", timeout=5)
+                resp.raise_for_status()
+                auth_url = resp.json()["authorization_url"]
+                st.markdown(f'<meta http-equiv="refresh" content="0;url={auth_url}">', unsafe_allow_html=True)
+            except requests.exceptions.ConnectionError:
+                st.error("Cannot reach the backend API. Make sure the FastAPI server is running on http://localhost:8000")
+            except Exception as e:
+                st.error(f"Failed to start sign-in: {e}")
+
+    st.stop()
+
+# ---- User is authenticated – store info ----
+st.session_state["user_info"] = user_info
+
 st.title("🏢 Virtual Department Representatives")
 st.caption("Ask any department representative a question based on your uploaded knowledge base.")
 
@@ -26,8 +104,17 @@ if departments is None:
     st.error("Cannot reach the backend API. Make sure the FastAPI server is running on http://localhost:8000")
     st.stop()
 
-# ---- Sidebar: department selector + file upload + document list ----
+# ---- Sidebar: user profile + department selector + file upload + document list ----
 with st.sidebar:
+    # User profile
+    st.markdown(f"**{user_info['name']}**")
+    st.caption(user_info["email"])
+    if st.button("Logout"):
+        logout()
+        st.rerun()
+
+    st.divider()
+
     st.header("Department")
     dept_names = [f"{d['icon']} {d['name']}" for d in departments]
     selected_label = st.radio("Choose a representative:", dept_names)
@@ -48,7 +135,15 @@ with st.sidebar:
             with st.spinner("Uploading..."):
                 try:
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue())}
-                    resp = requests.post(f"{API_URL}/upload/document", files=files, timeout=30)
+                    resp = requests.post(
+                        f"{API_URL}/upload/document",
+                        files=files,
+                        headers=get_auth_headers(),
+                        timeout=30,
+                    )
+                    if resp.status_code == 401:
+                        logout()
+                        st.rerun()
                     resp.raise_for_status()
                     st.success(f"Uploaded: {uploaded_file.name}")
                     st.cache_data.clear()
@@ -60,7 +155,10 @@ with st.sidebar:
     # Document list
     st.header("Documents")
     try:
-        docs_resp = requests.get(f"{API_URL}/documents", timeout=5)
+        docs_resp = requests.get(f"{API_URL}/documents", headers=get_auth_headers(), timeout=5)
+        if docs_resp.status_code == 401:
+            logout()
+            st.rerun()
         docs_resp.raise_for_status()
         docs = docs_resp.json()
     except Exception:
@@ -73,7 +171,14 @@ with st.sidebar:
             with st.expander(doc["title"]):
                 st.text(doc["content"][:500] + ("..." if len(doc["content"]) > 500 else ""))
                 if st.button("Delete", key=f"del_{doc['id']}"):
-                    requests.delete(f"{API_URL}/documents/{doc['id']}", timeout=5)
+                    resp = requests.delete(
+                        f"{API_URL}/documents/{doc['id']}",
+                        headers=get_auth_headers(),
+                        timeout=5,
+                    )
+                    if resp.status_code == 401:
+                        logout()
+                        st.rerun()
                     st.cache_data.clear()
                     st.rerun()
 
@@ -111,7 +216,15 @@ if prompt := st.chat_input("Ask the representative a question..."):
                     "message": prompt,
                     "history": history[:-1],  # send prior turns as context
                 }
-                resp = requests.post(f"{API_URL}/chat", json=payload, timeout=120)
+                resp = requests.post(
+                    f"{API_URL}/chat",
+                    json=payload,
+                    headers=get_auth_headers(),
+                    timeout=120,
+                )
+                if resp.status_code == 401:
+                    logout()
+                    st.rerun()
                 resp.raise_for_status()
                 reply = resp.json()["reply"]
             except requests.exceptions.ConnectionError:

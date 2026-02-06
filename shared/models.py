@@ -29,3 +29,27 @@ class Document(Base):
             "tags": self.tags,
             "metadata": self.extra_metadata,
         }
+
+
+class User(Base):
+    """Stores Google-authenticated users."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    google_id = Column(String(255), unique=True, nullable=False)
+    picture_url = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "picture_url": self.picture_url,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }

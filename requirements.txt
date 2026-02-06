@@ -6,3 +6,7 @@ ollama
 pypdf2
 streamlit
 requests
+google-auth
+google-auth-oauthlib
+python-jose[cryptography]
+python-dotenv
