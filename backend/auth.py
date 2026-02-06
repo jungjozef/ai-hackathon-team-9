@@ -6,10 +6,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
-
-# Load .env from project root
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google_auth_oauthlib.flow import Flow
@@ -18,6 +14,9 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from shared.models import User
+
+# Load .env from project root
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +41,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 # ---- Google OAuth helpers ----
 
+
 def get_google_oauth_flow() -> Flow:
     """Build a Google OAuth2 Flow from env-var credentials (no JSON file needed)."""
     client_config = {
@@ -59,6 +59,7 @@ def get_google_oauth_flow() -> Flow:
 
 
 # ---- JWT helpers ----
+
 
 def create_jwt_token(user: User) -> str:
     """Create a signed JWT containing user id and email."""
@@ -78,7 +79,10 @@ def verify_jwt_token(token: str) -> dict:
 
 # ---- User helpers ----
 
-def get_or_create_user(db: Session, google_id: str, email: str, name: str, picture_url: str | None) -> User:
+
+def get_or_create_user(
+    db: Session, google_id: str, email: str, name: str, picture_url: str | None
+) -> User:
     """Find an existing user by google_id or create a new one."""
     user = db.query(User).filter(User.google_id == google_id).first()
     if user:
@@ -103,20 +107,27 @@ def get_or_create_user(db: Session, google_id: str, email: str, name: str, pictu
 
 # ---- FastAPI dependency ----
 
+
 def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
     """FastAPI dependency – extracts JWT from Authorization header and returns the User, or raises 401."""
     if creds is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+        )
 
     try:
         payload = verify_jwt_token(creds.credentials)
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        )
 
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
     return user

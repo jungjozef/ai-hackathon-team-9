@@ -24,7 +24,12 @@ from shared.personas import list_departments
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Virtual Department Representatives")
+app = FastAPI(
+    title="Virtual Department Representatives",
+    description="API for querying department-specific AI representatives backed by an uploaded knowledge base.",
+    version="1.0.0",
+    docs_url="/apidocs",
+)
 
 # Allow the Streamlit frontend to call this API
 app.add_middleware(
