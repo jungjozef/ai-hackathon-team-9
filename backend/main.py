@@ -1,6 +1,7 @@
 """FastAPI application – API endpoints for the Virtual Representatives system."""
 
 import logging
+import os
 from datetime import date, datetime
 from urllib.parse import urlencode
 
@@ -245,7 +246,8 @@ def google_callback(
     )
 
     token = create_jwt_token(user)
-    redirect_url = f"http://localhost:8501/?{urlencode({'token': token})}"
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    redirect_url = f"{frontend_url}/?{urlencode({'token': token})}"
     return RedirectResponse(url=redirect_url)
 
 
