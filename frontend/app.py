@@ -1,5 +1,9 @@
 """Streamlit frontend for the Virtual Department Representatives system."""
 
+import json
+import re
+
+import plotly.graph_objects as go
 import requests
 import streamlit as st
 
@@ -7,6 +11,38 @@ API_URL = "http://localhost:8000"
 
 # ---- Page config ----
 st.set_page_config(page_title="Virtual Representatives", page_icon="🏢", layout="wide")
+
+# ---- Dashboard styling ----
+st.markdown("""
+<style>
+/* Compact typography inside dashboard bordered containers */
+[data-testid="stVerticalBlockBorderWrapper"] p,
+[data-testid="stVerticalBlockBorderWrapper"] li {
+    font-size: 0.88rem;
+    line-height: 1.4;
+}
+[data-testid="stVerticalBlockBorderWrapper"] h2 {
+    font-size: 1rem;
+    margin: 0 0 0.4rem 0;
+    padding: 0;
+}
+[data-testid="stVerticalBlockBorderWrapper"] table {
+    width: 100%;
+    font-size: 0.82rem;
+}
+[data-testid="stVerticalBlockBorderWrapper"] th {
+    font-weight: 600;
+    opacity: 0.7;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+[data-testid="stVerticalBlockBorderWrapper"] th,
+[data-testid="stVerticalBlockBorderWrapper"] td {
+    padding: 3px 6px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ---- Auth helpers ----
@@ -237,7 +273,79 @@ with tab_dashboard:
 
     if dashboard:
         st.caption(f"Generated: {dashboard['generated_at'][:16].replace('T', ' ')}")
-        st.markdown(dashboard["content"])
+
+        # ---- Render charts in compact cards ----
+        try:
+            charts = json.loads(dashboard.get("charts_json", "[]"))
+        except (json.JSONDecodeError, TypeError):
+            charts = []
+
+        if charts:
+            cols = st.columns(min(len(charts), 3))
+            for idx, chart in enumerate(charts):
+                with cols[idx % 3]:
+                    chart_type = chart.get("type", "bar")
+                    title = chart.get("title", "Chart")
+                    labels = chart.get("labels", [])
+                    values = chart.get("values", [])
+
+                    if not labels or not values:
+                        continue
+
+                    if chart_type == "pie":
+                        fig = go.Figure(data=[go.Pie(
+                            labels=labels,
+                            values=values,
+                            hole=0.4,
+                            textinfo="percent",
+                            textfont_size=11,
+                            hoverinfo="label+value+percent",
+                        )])
+                        fig.update_layout(
+                            showlegend=True,
+                            legend=dict(font=dict(size=9), orientation="h", y=-0.15),
+                        )
+                    else:
+                        fig = go.Figure(data=[go.Bar(
+                            x=labels,
+                            y=values,
+                            marker_color="#4A90D9",
+                            marker_line_width=0,
+                            text=values,
+                            textposition="outside",
+                            textfont_size=10,
+                        )])
+                        fig.update_layout(
+                            showlegend=False,
+                            xaxis=dict(tickfont=dict(size=9)),
+                            yaxis=dict(tickfont=dict(size=9), showgrid=True, gridcolor="rgba(128,128,128,0.1)"),
+                        )
+
+                    fig.update_layout(
+                        title=dict(text=title, font=dict(size=12)),
+                        margin=dict(l=10, r=10, t=35, b=10),
+                        height=240,
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+        # ---- Render markdown sections as cards ----
+        content = dashboard.get("content", "")
+        # Split on ## headings into separate sections
+        sections = re.split(r"(?=^## )", content, flags=re.MULTILINE)
+        sections = [s.strip() for s in sections if s.strip()]
+
+        if sections:
+            for row_start in range(0, len(sections), 2):
+                row = sections[row_start : row_start + 2]
+                cols = st.columns(len(row))
+                for col, section in zip(cols, row):
+                    with col:
+                        with st.container(border=True):
+                            st.markdown(section, unsafe_allow_html=True)
+        else:
+            st.markdown(content)
     else:
         st.warning("Could not load the dashboard. Is the backend running and Ollama available?")
 

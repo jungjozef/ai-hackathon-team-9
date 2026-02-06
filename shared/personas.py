@@ -293,6 +293,132 @@ DASHBOARD_PROMPTS = {
 }
 
 
+DASHBOARD_CHART_SPECS = {
+    "C-level": [
+        {
+            "id": "project_status",
+            "type": "pie",
+            "title": "Project Status Distribution",
+            "instruction": "Count projects by status: Active, At Risk, Completed, On Hold. Return labels and values.",
+        },
+        {
+            "id": "client_longevity",
+            "type": "bar",
+            "title": "Client Longevity (months)",
+            "instruction": "For each client, estimate how many months we have been working with them. Return client names as labels and months as values.",
+        },
+        {
+            "id": "timeline_progress",
+            "type": "bar",
+            "title": "Project Timeline Progress (%)",
+            "instruction": "For each active project with start/end dates, calculate the percentage of timeline elapsed. Return project names as labels and percentage (0-100) as values.",
+        },
+    ],
+    "Marketing": [
+        {
+            "id": "project_types",
+            "type": "pie",
+            "title": "Projects by Type",
+            "instruction": "Categorize all projects by type (e.g. Product Team, Team Extension, Consulting, etc.). Return type names as labels and counts as values.",
+        },
+        {
+            "id": "case_study_potential",
+            "type": "bar",
+            "title": "Case Study Potential Score",
+            "instruction": "For each completed or notable project, rate its case study potential from 1-10 based on uniqueness, impact, and storytelling value. Return project names as labels and scores as values.",
+        },
+        {
+            "id": "content_pipeline",
+            "type": "bar",
+            "title": "Content Pipeline Opportunities",
+            "instruction": "Count potential content pieces by type: Case Study, Blog Post, Conference Talk, Social Media. Return content types as labels and counts as values.",
+        },
+    ],
+    "Delivery": [
+        {
+            "id": "team_by_project",
+            "type": "bar",
+            "title": "Team Size by Project",
+            "instruction": "Count how many people are assigned to each project. Return project names as labels and team sizes as values.",
+        },
+        {
+            "id": "seniority_distribution",
+            "type": "pie",
+            "title": "Team Seniority Distribution",
+            "instruction": "Count team members by seniority level: Junior, Mid, Senior, Lead. Return levels as labels and counts as values.",
+        },
+        {
+            "id": "workload",
+            "type": "bar",
+            "title": "Work Items per Person",
+            "instruction": "Count active work items (tasks, tickets, stories) assigned to each team member. Return names as labels and counts as values.",
+        },
+    ],
+    "Sales": [
+        {
+            "id": "pipeline_stages",
+            "type": "pie",
+            "title": "Pipeline by Stage",
+            "instruction": "Count leads/deals by stage: Prospecting, Qualification, Negotiation, Closing, Won, Lost. Return stage names as labels and counts as values.",
+        },
+        {
+            "id": "leads_by_industry",
+            "type": "bar",
+            "title": "Leads by Industry",
+            "instruction": "Group current leads by industry or domain. Return industry names as labels and lead counts as values.",
+        },
+        {
+            "id": "deal_value",
+            "type": "bar",
+            "title": "Estimated Deal Value by Lead",
+            "instruction": "For each active lead or deal, estimate the deal value (or use a relative scale 1-10 if no numbers available). Return lead/company names as labels and values.",
+        },
+    ],
+    "Engineering": [
+        {
+            "id": "team_composition",
+            "type": "pie",
+            "title": "Team Composition by Role",
+            "instruction": "Count engineers by role: Frontend, Backend, Full-Stack, DevOps, QA, Other. Return roles as labels and counts as values.",
+        },
+        {
+            "id": "tech_usage",
+            "type": "bar",
+            "title": "Technology Usage Across Projects",
+            "instruction": "Count how many projects use each major technology (e.g. React, Python, PostgreSQL, AWS, etc.). Return technology names as labels and project counts as values.",
+        },
+        {
+            "id": "project_complexity",
+            "type": "bar",
+            "title": "Project Complexity Score",
+            "instruction": "Rate each project's complexity from 1-10 based on tech stack size, integration count, and domain difficulty. Return project names as labels and scores as values.",
+        },
+    ],
+    "Admin": [
+        {
+            "id": "resource_allocation",
+            "type": "pie",
+            "title": "Resource Allocation by Project",
+            "instruction": "Count people allocated to each project. Return project names as labels and people counts as values.",
+        },
+        {
+            "id": "deadlines_by_week",
+            "type": "bar",
+            "title": "Upcoming Deadlines by Week",
+            "instruction": "Count upcoming deadlines or milestones grouped by week (e.g. 'Week 1', 'Week 2', 'Week 3', 'Week 4'). Return week labels and counts as values.",
+        },
+    ],
+}
+
+
+def get_chart_specs(department: str) -> list[dict] | None:
+    """Get the chart specifications for a department (case-insensitive)."""
+    for key, specs in DASHBOARD_CHART_SPECS.items():
+        if key.lower() == department.lower():
+            return specs
+    return None
+
+
 def get_dashboard_prompt(department: str) -> str | None:
     """Get the dashboard generation prompt for a department (case-insensitive)."""
     for key, prompt in DASHBOARD_PROMPTS.items():
