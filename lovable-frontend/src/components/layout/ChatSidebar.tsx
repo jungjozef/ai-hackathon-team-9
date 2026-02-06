@@ -1,5 +1,15 @@
 import { useRef, useState } from "react";
-import { FileText, FileCode2, FileSpreadsheet, Plus, MessageSquare, Trash2, Upload, FileUp, UploadCloud } from "lucide-react";
+import {
+  FileText,
+  FileCode2,
+  FileSpreadsheet,
+  Plus,
+  MessageSquare,
+  Trash2,
+  Upload,
+  FileUp,
+  UploadCloud,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -77,7 +87,9 @@ export function ChatSidebar({
     }
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) {
       setSelectedFileName("No file selected");
@@ -148,13 +160,23 @@ export function ChatSidebar({
                     ? cn(
                         "border-2 border-opacity-50",
                         dept.borderClass.replace("border-l-", "border-"),
-                        dept.bgClass
+                        dept.bgClass,
                       )
-                    : "border-transparent bg-sidebar-accent"
+                    : "border-transparent bg-sidebar-accent",
                 )}
               >
-                <Icon className={cn("h-4 w-4", isSelected ? dept.colorClass : "text-muted-foreground")} />
-                <span className={cn("truncate text-xs", isSelected && "font-medium")}>
+                <Icon
+                  className={cn(
+                    "h-4 w-4",
+                    isSelected ? dept.colorClass : "text-muted-foreground",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "truncate text-xs",
+                    isSelected && "font-medium",
+                  )}
+                >
                   {deptMeta.name}
                 </span>
               </button>
@@ -167,7 +189,10 @@ export function ChatSidebar({
 
       {/* New Chat Button */}
       <div className="p-4">
-        <Button onClick={onNewChat} className="w-full gap-2" variant="outline">
+        <Button
+          onClick={onNewChat}
+          className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+        >
           <Plus className="h-4 w-4" />
           New Chat
         </Button>
@@ -222,9 +247,13 @@ export function ChatSidebar({
 
       <div className="px-4 pb-2">
         {!isAuthenticated ? (
-          <p className="text-xs text-muted-foreground">Sign in to view documents.</p>
+          <p className="text-xs text-muted-foreground">
+            Sign in to view documents.
+          </p>
         ) : documentsLoading ? (
-          <div className="text-xs text-muted-foreground">Loading documents...</div>
+          <div className="text-xs text-muted-foreground">
+            Loading documents...
+          </div>
         ) : documentsError ? (
           <div className="space-y-2 text-xs text-muted-foreground">
             <p>{documentsError}</p>
@@ -238,23 +267,33 @@ export function ChatSidebar({
             </Button>
           </div>
         ) : documents.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No documents uploaded yet.</p>
+          <p className="text-xs text-muted-foreground">
+            No documents uploaded yet.
+          </p>
         ) : (
           <ScrollArea className="h-40 pr-2">
             <Accordion type="multiple" className="space-y-2">
               {documents.map((doc) => (
-                <AccordionItem key={doc.id} value={`doc-${doc.id}`} className="border-none">
+                <AccordionItem
+                  key={doc.id}
+                  value={`doc-${doc.id}`}
+                  className="border-none"
+                >
                   <AccordionTrigger className="rounded-lg bg-sidebar-accent px-3 py-3 text-left text-xs font-medium no-underline hover:no-underline">
                     <span className="flex items-center gap-2 truncate">
                       {(() => {
                         const { icon: Icon, color } = getFileMeta(doc.title);
-                        return <Icon className={cn("h-3.5 w-3.5 shrink-0", color)} />;
+                        return (
+                          <Icon className={cn("h-3.5 w-3.5 shrink-0", color)} />
+                        );
                       })()}
                       <span className="truncate">{doc.title}</span>
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="px-3 pb-3 pt-2 text-xs text-muted-foreground">
-                    <p className="max-h-28 overflow-hidden text-ellipsis">{doc.content}</p>
+                    <p className="max-h-28 overflow-hidden text-ellipsis">
+                      {doc.content}
+                    </p>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -288,11 +327,15 @@ export function ChatSidebar({
                 onClick={() => onSelectConversation(conv.id)}
                 className={cn(
                   "flex w-full flex-col gap-1 rounded-lg p-3 text-left transition-colors hover:bg-sidebar-accent",
-                  activeConversationId === conv.id && "bg-sidebar-accent"
+                  activeConversationId === conv.id && "bg-sidebar-accent",
                 )}
               >
                 <div className="flex items-center justify-between">
-                  <DepartmentBadge departmentId={conv.department} size="sm" showLabel={false} />
+                  <DepartmentBadge
+                    departmentId={conv.department}
+                    size="sm"
+                    showLabel={false}
+                  />
                   <span className="text-xs text-muted-foreground">
                     {format(conv.timestamp, "MMM d")}
                   </span>
