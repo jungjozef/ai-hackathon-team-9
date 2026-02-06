@@ -68,8 +68,8 @@ export function ChatInput({
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={`Ask ${departmentLabel ?? departments[selectedDepartment].name} a question...`}
-          className="min-h-[44px] max-h-32 resize-none"
-          rows={1}
+          className="min-h-[64px] max-h-40 resize-none"
+          rows={2}
           disabled={disabled}
         />
         <Button

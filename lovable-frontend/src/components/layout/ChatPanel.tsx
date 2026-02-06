@@ -107,7 +107,7 @@ export function ChatPanel({
       <ScrollArea className="flex-1 p-6" ref={scrollRef}>
         <div className="mx-auto max-w-3xl space-y-6">
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex w-full min-h-[60vh] flex-col items-center justify-center py-12 text-center translate-y-6">
               <div
                 className={`mb-4 flex h-16 w-16 items-center justify-center rounded-full ${dept.bgClass}`}
               >
@@ -116,7 +116,7 @@ export function ChatPanel({
               <h3 className="mb-2 text-lg font-semibold">
                 Start a conversation with {deptName}
               </h3>
-              <p className="max-w-sm text-sm text-muted-foreground">
+              <p className="max-w-sm text-sm text-muted-foreground text-center">
                 Type your question below and the {deptName} team will respond
                 with helpful information.
               </p>

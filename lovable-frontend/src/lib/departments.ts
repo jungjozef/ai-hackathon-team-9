@@ -1,4 +1,4 @@
-import { Code, Truck, Clipboard, TrendingUp, Briefcase, Megaphone, LucideIcon } from "lucide-react";
+import { Code, Package, Clipboard, TrendingUp, Briefcase, Megaphone, LucideIcon } from "lucide-react";
 
 export type DepartmentId = "engineering" | "delivery" | "admin" | "sales" | "clevel" | "marketing";
 
@@ -29,7 +29,7 @@ export const departments: Record<DepartmentId, Department> = {
   delivery: {
     id: "delivery",
     name: "Delivery",
-    icon: Truck,
+    icon: Package,
     colorClass: "text-department-delivery",
     bgClass: "bg-department-delivery-light",
     borderClass: "border-l-department-delivery",
