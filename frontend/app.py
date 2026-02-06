@@ -182,37 +182,91 @@ with st.sidebar:
                     st.cache_data.clear()
                     st.rerun()
 
-# ---- Load chat history from backend per department ----
-if "histories" not in st.session_state:
-    st.session_state.histories = {}
-
-if selected_dept not in st.session_state.histories:
-    # Fetch persisted history from the API on first select
-    try:
-        hist_resp = requests.get(
-            f"{API_URL}/chat/history",
-            params={"department": selected_dept},
-            headers=get_auth_headers(),
-            timeout=5,
-        )
-        if hist_resp.status_code == 401:
-            logout()
-            st.rerun()
-        hist_resp.raise_for_status()
-        st.session_state.histories[selected_dept] = hist_resp.json()
-    except Exception:
-        st.session_state.histories[selected_dept] = []
-
-history = st.session_state.histories[selected_dept]
-
-# ---- Display chat history ----
+# ---- Department header ----
 dept_info = next((d for d in departments if d["name"] == selected_dept), None)
+st.subheader(f"{dept_info['icon']} {selected_dept} Representative" if dept_info else selected_dept)
+st.caption(dept_info["description"] if dept_info else "")
 
-header_col, clear_col = st.columns([6, 1])
-with header_col:
-    st.subheader(f"{dept_info['icon']} {selected_dept} Representative" if dept_info else selected_dept)
-with clear_col:
-    if history and st.button("Clear", help="Clear conversation history"):
+# ---- Tabbed interface: Dashboard (default) | Chat ----
+tab_dashboard, tab_chat = st.tabs(["Dashboard", "Chat"])
+
+# =============== DASHBOARD TAB ===============
+with tab_dashboard:
+
+    def fetch_dashboard(dept: str) -> dict | None:
+        """Fetch (or generate) today's dashboard snapshot from the API."""
+        try:
+            resp = requests.get(
+                f"{API_URL}/dashboard/{dept}",
+                headers=get_auth_headers(),
+                timeout=180,  # generation can take a while
+            )
+            if resp.status_code == 401:
+                logout()
+                st.rerun()
+            resp.raise_for_status()
+            return resp.json()
+        except Exception:
+            return None
+
+    # Cache dashboard in session state so we don't re-fetch on every interaction
+    dash_key = f"dashboard_{selected_dept}"
+    if dash_key not in st.session_state:
+        with st.spinner("Generating dashboard — this may take a moment on first load..."):
+            st.session_state[dash_key] = fetch_dashboard(selected_dept)
+
+    dashboard = st.session_state[dash_key]
+
+    # Regenerate button
+    if st.button("Regenerate Dashboard", key=f"regen_{selected_dept}"):
+        with st.spinner("Regenerating dashboard..."):
+            try:
+                resp = requests.post(
+                    f"{API_URL}/dashboard/{selected_dept}/regenerate",
+                    headers=get_auth_headers(),
+                    timeout=180,
+                )
+                if resp.status_code == 401:
+                    logout()
+                    st.rerun()
+                resp.raise_for_status()
+                st.session_state[dash_key] = resp.json()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to regenerate dashboard: {e}")
+
+    if dashboard:
+        st.caption(f"Generated: {dashboard['generated_at'][:16].replace('T', ' ')}")
+        st.markdown(dashboard["content"])
+    else:
+        st.warning("Could not load the dashboard. Is the backend running and Ollama available?")
+
+# =============== CHAT TAB ===============
+with tab_chat:
+    # Load chat history from backend per department
+    if "histories" not in st.session_state:
+        st.session_state.histories = {}
+
+    if selected_dept not in st.session_state.histories:
+        try:
+            hist_resp = requests.get(
+                f"{API_URL}/chat/history",
+                params={"department": selected_dept},
+                headers=get_auth_headers(),
+                timeout=5,
+            )
+            if hist_resp.status_code == 401:
+                logout()
+                st.rerun()
+            hist_resp.raise_for_status()
+            st.session_state.histories[selected_dept] = hist_resp.json()
+        except Exception:
+            st.session_state.histories[selected_dept] = []
+
+    history = st.session_state.histories[selected_dept]
+
+    # Clear history button
+    if history and st.button("Clear History", key=f"clear_{selected_dept}"):
         try:
             requests.delete(
                 f"{API_URL}/chat/history",
@@ -225,44 +279,41 @@ with clear_col:
         st.session_state.histories[selected_dept] = []
         st.rerun()
 
-st.caption(dept_info["description"] if dept_info else "")
+    # Display chat messages
+    for msg in history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-for msg in history:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+    # Chat input
+    if prompt := st.chat_input("Ask the representative a question..."):
+        history.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-# ---- Chat input ----
-if prompt := st.chat_input("Ask the representative a question..."):
-    # Show user message immediately
-    history.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                try:
+                    payload = {
+                        "department": selected_dept,
+                        "message": prompt,
+                        "history": history[:-1],
+                    }
+                    resp = requests.post(
+                        f"{API_URL}/chat",
+                        json=payload,
+                        headers=get_auth_headers(),
+                        timeout=120,
+                    )
+                    if resp.status_code == 401:
+                        logout()
+                        st.rerun()
+                    resp.raise_for_status()
+                    reply = resp.json()["reply"]
+                except requests.exceptions.ConnectionError:
+                    reply = "Cannot reach the backend API. Is it running?"
+                except Exception as e:
+                    reply = f"Error: {e}"
 
-    # Call the backend
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                payload = {
-                    "department": selected_dept,
-                    "message": prompt,
-                    "history": history[:-1],  # send prior turns as context
-                }
-                resp = requests.post(
-                    f"{API_URL}/chat",
-                    json=payload,
-                    headers=get_auth_headers(),
-                    timeout=120,
-                )
-                if resp.status_code == 401:
-                    logout()
-                    st.rerun()
-                resp.raise_for_status()
-                reply = resp.json()["reply"]
-            except requests.exceptions.ConnectionError:
-                reply = "Cannot reach the backend API. Is it running?"
-            except Exception as e:
-                reply = f"Error: {e}"
+            st.markdown(reply)
 
-        st.markdown(reply)
-
-    history.append({"role": "assistant", "content": reply})
+        history.append({"role": "assistant", "content": reply})

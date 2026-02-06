@@ -1,8 +1,8 @@
 """SQLAlchemy database models for the Virtual Representatives system."""
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -71,4 +71,24 @@ class ConversationMessage(Base):
         return {
             "role": self.role,
             "content": self.content,
+        }
+
+
+class DashboardSnapshot(Base):
+    """Caches a daily LLM-generated dashboard per department."""
+
+    __tablename__ = "dashboard_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    department = Column(String(100), nullable=False, index=True)
+    content = Column(Text, nullable=False)  # Markdown content
+    generated_date = Column(Date, nullable=False, default=date.today)
+    generated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "department": self.department,
+            "content": self.content,
+            "generated_date": self.generated_date.isoformat(),
+            "generated_at": self.generated_at.isoformat(),
         }

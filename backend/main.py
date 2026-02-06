@@ -1,6 +1,7 @@
 """FastAPI application – API endpoints for the Virtual Representatives system."""
 
 import logging
+from datetime import date, datetime
 from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
@@ -17,8 +18,8 @@ from backend.auth import (
 )
 from backend.database import get_db, init_db
 from backend.document_processor import extract_text, store_document
-from backend.llm import chat as llm_chat
-from shared.models import ConversationMessage, Document, User
+from backend.llm import chat as llm_chat, generate_dashboard
+from shared.models import ConversationMessage, DashboardSnapshot, Document, User
 from shared.personas import list_departments
 
 logging.basicConfig(level=logging.INFO)
@@ -167,6 +168,73 @@ async def upload_document(
 
     doc = store_document(db, title=file.filename, content=text)
     return doc.to_dict()
+
+
+@app.get("/dashboard/{department}")
+def get_dashboard(
+    department: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return today's dashboard for a department. Generates it on the fly if not yet cached."""
+    today = date.today()
+    snapshot = (
+        db.query(DashboardSnapshot)
+        .filter(
+            DashboardSnapshot.department == department,
+            DashboardSnapshot.generated_date == today,
+        )
+        .first()
+    )
+
+    if snapshot:
+        return snapshot.to_dict()
+
+    # No snapshot for today — generate one now
+    try:
+        content = generate_dashboard(department, db)
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    snapshot = DashboardSnapshot(department=department, content=content, generated_date=today)
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot.to_dict()
+
+
+@app.post("/dashboard/{department}/regenerate")
+def regenerate_dashboard(
+    department: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Force-regenerate today's dashboard for a department."""
+    try:
+        content = generate_dashboard(department, db)
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    today = date.today()
+    # Replace today's snapshot if one exists
+    existing = (
+        db.query(DashboardSnapshot)
+        .filter(
+            DashboardSnapshot.department == department,
+            DashboardSnapshot.generated_date == today,
+        )
+        .first()
+    )
+    if existing:
+        existing.content = content
+        existing.generated_at = datetime.utcnow()
+    else:
+        existing = DashboardSnapshot(department=department, content=content, generated_date=today)
+        db.add(existing)
+
+    db.commit()
+    db.refresh(existing)
+    return existing.to_dict()
 
 
 @app.post("/chat")

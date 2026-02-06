@@ -7,7 +7,7 @@ import ollama
 from sqlalchemy.orm import Session
 
 from shared.models import Document
-from shared.personas import get_persona
+from shared.personas import get_dashboard_prompt, get_persona
 
 logger = logging.getLogger(__name__)
 
@@ -90,4 +90,57 @@ def chat(
     return (
         f"Sorry, no LLM model is available. Tried models: {MODEL}, {FALLBACK_MODEL}. "
         f"Make sure Ollama is running and has a model pulled.{error_detail}"
+    )
+
+
+def generate_dashboard(department: str, db: Session) -> str:
+    """Generate a department dashboard by feeding all documents into the department-specific dashboard prompt.
+
+    Returns Markdown content. Raises RuntimeError if all models fail.
+    """
+    dashboard_prompt = get_dashboard_prompt(department)
+    if dashboard_prompt is None:
+        raise ValueError(f"No dashboard prompt defined for department: {department}")
+
+    context = _fetch_context(db, limit=50)  # pull more docs for the dashboard
+
+    system_message = (
+        f"{dashboard_prompt}\n\n"
+        "=== KNOWLEDGE BASE DOCUMENTS ===\n\n"
+        f"{context}"
+    )
+
+    messages = [
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": "Generate the dashboard now based on all available documents."},
+    ]
+
+    last_error = None
+    for model in (MODEL, FALLBACK_MODEL):
+        try:
+            logger.info("Generating dashboard model=%s department=%s", model, department)
+            response = ollama.chat(model=model, messages=messages)
+
+            if hasattr(response, "message"):
+                msg = response.message
+                content = msg.content if hasattr(msg, "content") else msg.get("content", "")
+            elif isinstance(response, dict) and "message" in response:
+                content = response["message"]["content"]
+            else:
+                content = str(response)
+
+            logger.info("Dashboard generated for %s (%d chars)", department, len(content))
+            return content
+        except ollama.ResponseError as e:
+            logger.warning("Dashboard model %s ResponseError: %s", model, e)
+            last_error = e
+            continue
+        except Exception as e:
+            logger.error("Dashboard model %s error (%s): %s", model, type(e).__name__, e)
+            last_error = e
+            continue
+
+    raise RuntimeError(
+        f"Failed to generate dashboard. Tried: {MODEL}, {FALLBACK_MODEL}. "
+        f"Last error: {last_error}"
     )
